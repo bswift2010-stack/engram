@@ -101,6 +101,14 @@ npx mcporter call engram.engram_supersede oldChunkId=chk-xxx newText="Updated fa
 
 Soft-deletes the old chunk, stores the new one, and links them via `superseded_by`.
 
+### Inspect extraction queue — `engram_queue_stats`
+
+```bash
+npx mcporter call engram.engram_queue_stats
+```
+
+Returns counts by status (`pending`, `processing`, `completed`, `failed`) and the age of the oldest pending item. Use to diagnose why the knowledge graph is not growing or to decide when to call `engram_process_extractions`. Takes no parameters.
+
 ## Usage Patterns
 
 ### Before answering a user question

@@ -8,7 +8,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js >= 20](https://img.shields.io/badge/Node.js-%3E%3D%2020-green.svg)](https://nodejs.org/)
-[![Tests: 234](https://img.shields.io/badge/Tests-234%20passing-brightgreen.svg)](#development)
+[![Tests: 308](https://img.shields.io/badge/Tests-308%20passing-brightgreen.svg)](#development)
 [![SQLite](https://img.shields.io/badge/Storage-SQLite-003B57.svg)](https://sqlite.org)
 
 </div>
@@ -616,7 +616,7 @@ Agent memory files use the `.engram` extension. Standard SQLite databases — in
 ```bash
 npm install
 npm run build        # TypeScript → dist/
-npm test             # 234 tests across 13 suites
+npm test             # 308 tests across 16 suites
 npm run typecheck    # type check without emit
 npm run example      # run examples/basic-usage.ts
 ```

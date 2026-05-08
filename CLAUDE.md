@@ -10,7 +10,7 @@ Agents running on Engram don't just remember. They form opinions, refine them wi
 
 ## Repo
 
-`swift-innovate/engram` — Apache 2.0 (or BSL 1.1 — TBD)
+`swift-innovate/engram` — Apache 2.0
 
 ## Design Heritage
 
@@ -140,7 +140,7 @@ engram/
 │   ├── working-memory-types.ts  ← types for working memory session management
 │   ├── mcp-tools.ts             ← MCP tool definitions (8 tools: retain/recall/reflect/extract/forget/supersede/session/queue_stats)
 │   └── mcp-server.ts            ← standalone MCP stdio server (engram-mcp CLI)
-├── tests/                        ← 234 tests across 12 files
+├── tests/                        ← 308 tests across 16 suites
 │   ├── helpers.ts
 │   ├── retain.test.ts
 │   ├── retain-gate.test.ts
@@ -151,12 +151,13 @@ engram/
 │   ├── generation.test.ts
 │   ├── engram.test.ts
 │   ├── working-memory.test.ts
+│   ├── local-embedder.test.ts
 │   ├── agent-integration.test.ts
 │   └── mcp-server.test.ts
 ├── docs/
 │   └── OPENCLAW-INTEGRATION.md   ← OpenClaw memory plugin setup guide
 ├── skills/
-│   ├── engram.md                  ← portable agent skill (all 7 MCP tools)
+│   ├── engram.md                  ← portable agent skill (covers all 8 MCP tools)
 │   └── engram-session.md          ← working memory session skill
 ├── tools/
 │   └── openclaw-import/           ← CLI to import OpenClaw memory files into .engram
@@ -170,7 +171,8 @@ engram/
 │           ├── dates.ts           ← date extraction from filenames and content
 │           ├── parser.ts          ← H2-split markdown chunker with size limits
 │           ├── mapping.ts         ← category → memory type + trust score mapping
-│           └── types.ts           ← shared interfaces
+│           ├── types.ts           ← shared interfaces
+│           └── tests/             ← 67 unit tests (classify/parser/mapping/dates)
 └── examples/
     └── basic-usage.ts
 ```
@@ -260,6 +262,10 @@ const context = await myAgentMemory.recall(userMessage, { topK: 10 });
 const systemPrompt = buildPromptWithMemory(basePrompt, context);
 ```
 
+## Active Design Work
+
+- **AQL (Agent Query Language) binary** — design-phase Rust binary that shares the `.engram` SQLite file with the TypeScript process to provide a declarative read query surface (`RECALL`, `SCAN`, `LOOKUP`, `LOAD`, `AGGREGATE`, `ORDER BY`, `WITH LINKS`, `FOLLOW LINKS`). Phase 1 is read-only; writes (`STORE`, `UPDATE`, `FORGET`, `LINK`) stay in TypeScript Engram via existing MCP tools. Both processes use SQLite WAL for concurrent access. See `docs/superpowers/specs/2026-04-12-engram-aql-rust-binary-design.md` and the implementation plan at `docs/superpowers/plans/2026-04-11-aql-engram-integration.md`. Supersedes the earlier WASM-bridge approach.
+
 ## Git
 
 ```bash
@@ -274,7 +280,7 @@ git init && git branch -M main
 
 - [x] **Shared engram**: Naming convention. Multiple agents call `Engram.open('./shared.engram')`. SQLite WAL mode supports concurrent readers + one writer — concurrent `retain()` from multiple agents is safe as long as calls aren't simultaneous. No separate API needed.
 
-- [x] **MCP tool granularity**: All four operations exposed (`engram_retain`, `engram_recall`, `engram_reflect`, `engram_process_extractions`). Agents that only need recall+retain simply ignore the other two tools.
+- [x] **MCP tool surface**: 8 tools exposed in `mcp-tools.ts` — `engram_retain`, `engram_recall`, `engram_reflect`, `engram_process_extractions`, `engram_forget`, `engram_supersede`, `engram_session`, `engram_queue_stats`. Agents pick what they need; `forget`/`supersede` enable correction loops, `session` carries working-memory context across turns, `queue_stats` reports extraction-queue health for ops/diagnostics.
 
 - [x] **Reflect schedule**: Library default is manual (call `engram.reflect()` or the CLI). `ReflectScheduler` class ships for timer-based use. Recommendation for valor-engine: `ReflectScheduler` with a 6-hour default, configurable per operative.
 
