@@ -16,6 +16,11 @@ export default defineConfig({
     },
   },
   test: {
+    // Native addons (better-sqlite3 via engram) require forked child
+    // processes, not worker_threads (vitest default). Same reason the
+    // parent vitest.config.ts uses forks. Also unlocks process.chdir()
+    // in tests that need to set a per-test cwd.
+    pool: 'forks',
     include: ['tests/**/*.test.ts'],
   },
 });

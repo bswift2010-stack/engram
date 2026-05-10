@@ -55,6 +55,12 @@ const DEFAULT_DB_RELATIVE = '.engram/pi.db';
 let enginePromise: Promise<Engram> | null = null;
 let cachedDbPath: string | null = null;
 
+// Engine factory — overridable from tests to swap in a deterministic embedder
+// without paying the LocalEmbedder model download. Production never touches
+// this; the only setter is the test-only export below, prefixed `_`.
+type EngineFactory = (path: string) => Promise<Engram>;
+let engineFactory: EngineFactory = (path) => Engram.open(path);
+
 /**
  * Lazy Engram opener. Called on first command/tool invocation. Reuses the
  * same instance across the session — Engram holds a single SQLite connection
@@ -67,8 +73,26 @@ async function getEngram(): Promise<Engram> {
   cachedDbPath = dbPath;
   await mkdir(dirname(dbPath), { recursive: true });
 
-  enginePromise = Engram.open(dbPath);
+  enginePromise = engineFactory(dbPath);
   return enginePromise;
+}
+
+/**
+ * Test-only escape hatch. Replaces the engine factory and resets any
+ * cached promise so the next getEngram() call uses the new factory.
+ * The leading underscore + name make it obvious this is not a public API.
+ */
+export function _setEngineFactoryForTesting(factory: EngineFactory): void {
+  enginePromise = null;
+  cachedDbPath = null;
+  engineFactory = factory;
+}
+
+/** Test-only: reset to default factory and drop any cached engine. */
+export function _resetEngineFactoryForTesting(): void {
+  enginePromise = null;
+  cachedDbPath = null;
+  engineFactory = (path) => Engram.open(path);
 }
 
 async function closeEngram(): Promise<void> {
