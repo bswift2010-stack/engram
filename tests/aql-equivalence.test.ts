@@ -135,7 +135,9 @@ describe('AQL semantic equivalence to raw SQL (L2)', () => {
 
   it('RECALL FROM EPISODIC ≡ chunks WHERE memory_type = experience', async () => {
     await seedAndClose();
-    const aql = aqlChunkIds(aqlQuery(dbPath, 'RECALL FROM EPISODIC ALL LIMIT 50'));
+    const aql = aqlChunkIds(
+      aqlQuery(dbPath, 'RECALL FROM EPISODIC ALL LIMIT 50'),
+    );
     const sql = rawSqlIds(
       "SELECT id FROM chunks WHERE memory_type = 'experience' AND is_active = 1 LIMIT 50",
     );
@@ -145,7 +147,9 @@ describe('AQL semantic equivalence to raw SQL (L2)', () => {
 
   it('RECALL FROM SEMANTIC ≡ chunks WHERE memory_type = world', async () => {
     await seedAndClose();
-    const aql = aqlChunkIds(aqlQuery(dbPath, 'RECALL FROM SEMANTIC ALL LIMIT 50'));
+    const aql = aqlChunkIds(
+      aqlQuery(dbPath, 'RECALL FROM SEMANTIC ALL LIMIT 50'),
+    );
     const sql = rawSqlIds(
       "SELECT id FROM chunks WHERE memory_type = 'world' AND is_active = 1 LIMIT 50",
     );
@@ -309,7 +313,9 @@ describe('AQL semantic equivalence to raw SQL (L2)', () => {
     engram.close();
     engram = undefined;
 
-    const aql = aqlChunkIds(aqlQuery(dbPath, 'RECALL FROM SEMANTIC ALL LIMIT 50'));
+    const aql = aqlChunkIds(
+      aqlQuery(dbPath, 'RECALL FROM SEMANTIC ALL LIMIT 50'),
+    );
     const sql = rawSqlIds(
       "SELECT id FROM chunks WHERE memory_type = 'world' AND is_active = 1 LIMIT 50",
     );

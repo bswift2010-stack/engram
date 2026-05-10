@@ -364,7 +364,9 @@ describe('Engram', () => {
     dbPath = tmpDbPath();
     engram = await Engram.create(dbPath, { embedder: new MockEmbedder() });
 
-    await engram.retain('Fact A captured before backup', { memoryType: 'world' });
+    await engram.retain('Fact A captured before backup', {
+      memoryType: 'world',
+    });
 
     const backupPath = tmpDbPath();
     try {
@@ -385,7 +387,9 @@ describe('Engram', () => {
 
       const backup = new Database(backupPath);
       const backupRows = backup
-        .prepare(`SELECT text FROM chunks WHERE memory_type = 'world' ORDER BY created_at`)
+        .prepare(
+          `SELECT text FROM chunks WHERE memory_type = 'world' ORDER BY created_at`,
+        )
         .all() as Array<{ text: string }>;
       backup.close();
       expect(backupRows).toHaveLength(1);

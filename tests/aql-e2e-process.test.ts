@@ -158,7 +158,14 @@ describe('engram-aql cross-process end-to-end (L3)', () => {
     engram.close();
     engram = undefined;
 
-    return { semantic, episodic, opsContext, ciContext, outcomeSuccess, outcomeFailure };
+    return {
+      semantic,
+      episodic,
+      opsContext,
+      ciContext,
+      outcomeSuccess,
+      outcomeFailure,
+    };
   }
 
   // ---- Schema compatibility ----
@@ -300,7 +307,9 @@ describe('engram-aql cross-process end-to-end (L3)', () => {
     expect(read.data.length).toBe(ids.semantic.length);
 
     // TS side re-opens — verify every chunk is still intact and readable.
-    const reopened = await Engram.open(dbPath, { embedder: new MockEmbedder() });
+    const reopened = await Engram.open(dbPath, {
+      embedder: new MockEmbedder(),
+    });
     try {
       const db = new Database(dbPath);
       const rows = db

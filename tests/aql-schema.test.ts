@@ -24,7 +24,13 @@ describe('AQL schema additions', () => {
     db.prepare(
       `INSERT INTO tools (id, name, description, api_url, ranking)
        VALUES (?, ?, ?, ?, ?)`,
-    ).run('t-001', 'image_resize', 'Resize images', 'https://api.example.com/resize', 0.9);
+    ).run(
+      't-001',
+      'image_resize',
+      'Resize images',
+      'https://api.example.com/resize',
+      0.9,
+    );
 
     const row = db
       .prepare(`SELECT * FROM tools WHERE id = ?`)
@@ -44,7 +50,9 @@ describe('AQL schema additions', () => {
   it('tools table has ranking and namespace indexes for LOAD queries', () => {
     const db = createTestDb();
     const indexes = db
-      .prepare(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'tools'`)
+      .prepare(
+        `SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'tools'`,
+      )
       .all() as Array<{ name: string }>;
     const names = indexes.map((i) => i.name);
     expect(names).toContain('idx_tools_ranking');
