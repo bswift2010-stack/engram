@@ -262,9 +262,19 @@ const context = await myAgentMemory.recall(userMessage, { topK: 10 });
 const systemPrompt = buildPromptWithMemory(basePrompt, context);
 ```
 
-## Active Design Work
+## Active Development — engram-aql (Rust)
 
-- **AQL (Agent Query Language) binary** — design-phase Rust binary that shares the `.engram` SQLite file with the TypeScript process to provide a declarative read query surface (`RECALL`, `SCAN`, `LOOKUP`, `LOAD`, `AGGREGATE`, `ORDER BY`, `WITH LINKS`, `FOLLOW LINKS`). Phase 1 is read-only; writes (`STORE`, `UPDATE`, `FORGET`, `LINK`) stay in TypeScript Engram via existing MCP tools. Both processes use SQLite WAL for concurrent access. See `docs/superpowers/specs/2026-04-12-engram-aql-rust-binary-design.md` and the implementation plan at `docs/superpowers/plans/2026-04-11-aql-engram-integration.md`. Supersedes the earlier WASM-bridge approach.
+A second crate, `engram-aql`, lives on the `feat/engram-aql-rust` branch (not yet merged to main). It is a separate Rust process that shares the `.engram` SQLite file with TypeScript Engram via WAL: TS owns writes (retain, embedding, extraction, reflection); the Rust binary owns the AQL declarative read surface (`RECALL`, `SCAN`, `LOOKUP`, `LOAD`, `AGGREGATE`, `ORDER BY`, `WITH LINKS`, `FOLLOW LINKS`). Phase 1 is read-only — write statements (`STORE`, `UPDATE`, `FORGET`, `LINK`, `REFLECT`) are rejected at dispatch with a pointer to the existing TS MCP tools.
+
+**Where to look:**
+- Worktree: `G:/Projects/SIT/engram-rs/` (branch `feat/engram-aql-rust`)
+- Crate: `engram-rs/engram-aql/` — `src/{executor,memory_map,schema,mcp,statements,subcommand}.rs`
+- Subcommands: `engram-aql query <db> '<aql>'` (one-shot JSON), `engram-aql repl <db>` (interactive), `engram-aql mcp <db>` (stdio MCP server exposing `engram_aql` tool)
+- Test layers: L1 Rust integration tests in `engram-aql/tests/` (recall/scan/lookup/load/aggregate/graph/pipeline/write_rejection), L2 semantic equivalence + L3 cross-process suites in TS (`engram-rs/tests/aql-*.test.ts`) — these validate the cross-process WAL handoff against TS-created `.engram` files
+- Spec: `docs/superpowers/specs/2026-04-12-engram-aql-rust-binary-design.md` (supersedes the abandoned WASM-bridge approach)
+- Plan: `docs/superpowers/plans/2026-04-11-aql-engram-integration.md`
+
+**Working on AQL:** switch to the `engram-rs` worktree (`cd G:/Projects/SIT/engram-rs`) — the main worktree here is TypeScript-only.
 
 ## Git
 
