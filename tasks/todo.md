@@ -42,8 +42,8 @@ Engram repo
 
 ### Phase 0: Verify assumptions
 
-- [ ] **Confirm `@earendil-works/pi-coding-agent` is the current npm package name** (search results showed `@mariozechner/pi-coding-agent` in npm; docs use `@earendil-works/...`). One brief web check before adding the dep.
-- [ ] **Confirm extension runtime is Node.js (not QuickJS)** — docs mention both. If QuickJS, native deps (better-sqlite3) won't load and we fall back to spawning `engram-mcp` from the extension. Decision affects the adapter implementation.
+- [x] **Confirm `@earendil-works/pi-coding-agent` is the current npm package name** — verified v0.74.0 on npm registry; older `@mariozechner/pi-coding-agent` (0.73.1) is by same author Mario Zechner but the @earendil-works scope is current. Binary name is `pi`. Project config dir is `.pi`.
+- [x] **Confirm extension runtime is Node.js (not QuickJS)** — verified via docs: "Extensions are loaded via jiti, so TypeScript works without compilation." jiti is a Node.js TS loader. Native deps (better-sqlite3, sqlite-vec, transformers.js) work in-process. The QuickJS mention from search results refers to the separate Rust-based `pi_agent_rust` port, not pi-mono.
 
 ### Phase 1: Scaffold
 
