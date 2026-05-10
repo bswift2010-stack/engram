@@ -105,6 +105,7 @@ export function aqlQuery(dbPath: string, query: string): AqlResult {
   } catch (parseErr) {
     throw new Error(
       `engram-aql produced non-JSON stdout (exit ${result.status}):\n${result.stdout}\nstderr:\n${result.stderr}\nparse error: ${parseErr}`,
+      { cause: parseErr },
     );
   }
 }
