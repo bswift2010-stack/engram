@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import Database from 'better-sqlite3';
 import { Engram } from '../src/engram.js';
 import { MockEmbedder, tmpDbPath, cleanupDb } from './helpers.js';
 
@@ -218,6 +219,47 @@ describe('Working Memory', () => {
 
     const sessions = engram.listWorkingSessions();
     expect(sessions.length).toBeLessThanOrEqual(3);
+  });
+
+  it('creates an experience snapshot chunk when evicting oldest session', async () => {
+    dbPath = tmpDbPath();
+    engram = await Engram.create(dbPath, { embedder: new MockEmbedder() });
+
+    // Directly create 3 sessions to bypass embedding similarity matching
+    const emb1 = await engram.embedText('alpha session');
+    const first = await engram.createWorkingSession(
+      'alpha session',
+      Buffer.from(emb1.buffer),
+    );
+    const emb2 = await engram.embedText('beta session');
+    await engram.createWorkingSession('beta session', Buffer.from(emb2.buffer));
+    const emb3 = await engram.embedText('gamma session');
+    await engram.createWorkingSession(
+      'gamma session',
+      Buffer.from(emb3.buffer),
+    );
+
+    expect(engram.listWorkingSessions().length).toBe(3);
+
+    // 4th session with maxActive=3 — should snapshot+expire the oldest (first)
+    await engram.inferWorkingSession('ZZZZ completely new topic ZZZZ', {
+      maxActive: 3,
+      threshold: 0.999,
+    });
+
+    // The evicted session should have produced an experience chunk in the DB
+    const db = new Database(dbPath);
+    const snapshot = db
+      .prepare(
+        `SELECT id, source FROM chunks WHERE source LIKE '%working_memory%' AND source LIKE ?`,
+      )
+      .get(`%${first.id}%`) as { id: string; source: string } | undefined;
+    db.close();
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.source).toContain(first.id);
+
+    // The evicted session should no longer be active
+    expect(engram.getWorkingSession(first.id)).toBeNull();
   });
 
   it('clamps maxActive=0 to 1, keeping at least one session active', async () => {

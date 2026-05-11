@@ -395,6 +395,247 @@ describe('reflect()', () => {
     expect(op.confidence).toBeCloseTo(0.78, 2);
   });
 
+  it('clamps reinforce delta exceeding +0.15 to 0.15', async () => {
+    dbPath = tmpDbPath();
+    await setupDb(dbPath, 5);
+
+    const db = new Database(dbPath);
+    db.prepare(
+      `
+      INSERT INTO opinions (id, belief, confidence, domain, supporting_chunks, related_entities)
+      VALUES ('op-clamp', 'Clampable belief', 0.5, 'test', '[]', '[]')
+    `,
+    ).run();
+    db.close();
+
+    vi.stubGlobal(
+      'fetch',
+      mockOllamaFetch(
+        JSON.stringify({
+          observations: [],
+          opinion_updates: [
+            {
+              belief: 'Clampable belief',
+              direction: 'reinforce',
+              confidence_delta: 0.5, // way over 0.15
+              domain: 'test',
+              evidence_chunk_ids: ['chk-x'],
+              entity_names: [],
+            },
+          ],
+          observation_refreshes: [],
+        }),
+      ),
+    );
+
+    const result = await reflect({ dbPath });
+    expect(result.opinionsReinforced).toBe(1);
+
+    const verify = new Database(dbPath);
+    const op = verify
+      .prepare(`SELECT confidence FROM opinions WHERE id = 'op-clamp'`)
+      .get() as { confidence: number };
+    verify.close();
+
+    // Delta clamped to +0.15 → 0.5 + 0.15 = 0.65
+    expect(op.confidence).toBeCloseTo(0.65, 2);
+  });
+
+  it('clamps challenge delta exceeding -0.15 to -0.15', async () => {
+    dbPath = tmpDbPath();
+    await setupDb(dbPath, 5);
+
+    const db = new Database(dbPath);
+    db.prepare(
+      `
+      INSERT INTO opinions (id, belief, confidence, domain, supporting_chunks, contradicting_chunks, related_entities)
+      VALUES ('op-challenge', 'Challengeable belief', 0.8, 'test', '[]', '[]', '[]')
+    `,
+    ).run();
+    db.close();
+
+    vi.stubGlobal(
+      'fetch',
+      mockOllamaFetch(
+        JSON.stringify({
+          observations: [],
+          opinion_updates: [
+            {
+              belief: 'Challengeable belief',
+              direction: 'challenge',
+              confidence_delta: -0.5, // way under -0.15
+              domain: 'test',
+              evidence_chunk_ids: ['chk-y'],
+              entity_names: [],
+            },
+          ],
+          observation_refreshes: [],
+        }),
+      ),
+    );
+
+    const result = await reflect({ dbPath });
+    expect(result.opinionsChallenged).toBe(1);
+
+    const verify = new Database(dbPath);
+    const op = verify
+      .prepare(`SELECT confidence FROM opinions WHERE id = 'op-challenge'`)
+      .get() as { confidence: number };
+    verify.close();
+
+    // Delta clamped to -0.15 → 0.8 - 0.15 = 0.65
+    expect(op.confidence).toBeCloseTo(0.65, 2);
+  });
+
+  it('clamps new opinion confidence to [0.3, 0.7] even with extreme delta', async () => {
+    dbPath = tmpDbPath();
+    await setupDb(dbPath, 5);
+
+    vi.stubGlobal(
+      'fetch',
+      mockOllamaFetch(
+        JSON.stringify({
+          observations: [],
+          opinion_updates: [
+            {
+              belief: 'Extreme confidence new opinion',
+              direction: 'new',
+              confidence_delta: 5.0, // absurdly high
+              domain: 'test',
+              evidence_chunk_ids: ['chk-z'],
+              entity_names: [],
+            },
+          ],
+          observation_refreshes: [],
+        }),
+      ),
+    );
+
+    const result = await reflect({ dbPath });
+    expect(result.opinionsFormed).toBe(1);
+
+    const verify = new Database(dbPath);
+    const op = verify
+      .prepare(`SELECT confidence FROM opinions WHERE belief LIKE '%Extreme%'`)
+      .get() as { confidence: number };
+    verify.close();
+
+    // New opinion: min(0.7, max(0.3, 0.5 + 5.0)) = min(0.7, 5.5) = 0.7
+    expect(op.confidence).toBe(0.7);
+  });
+
+  it('refreshes an existing observation with new source chunks', async () => {
+    dbPath = tmpDbPath();
+    await setupDb(dbPath, 5);
+
+    const db = new Database(dbPath);
+    db.prepare(
+      `
+      INSERT INTO observations (id, summary, source_chunks, source_entities, domain, topic, synthesized_at, refresh_count)
+      VALUES ('obs-refresh', 'Alice uses Rust', '["chk-old"]', '[]', 'preferences', 'languages', datetime('now'), 0)
+    `,
+    ).run();
+    db.close();
+
+    vi.stubGlobal(
+      'fetch',
+      mockOllamaFetch(
+        JSON.stringify({
+          observations: [],
+          opinion_updates: [],
+          observation_refreshes: [
+            {
+              existing_observation_id: 'obs-refresh',
+              updated_summary: 'Alice uses Rust for all systems and CLI work',
+              new_source_chunk_ids: ['chk-new1', 'chk-new2'],
+            },
+          ],
+        }),
+      ),
+    );
+
+    const result = await reflect({ dbPath });
+    expect(result.observationsUpdated).toBe(1);
+
+    const verify = new Database(dbPath);
+    const obs = verify
+      .prepare(
+        `SELECT summary, source_chunks, refresh_count FROM observations WHERE id = 'obs-refresh'`,
+      )
+      .get() as any;
+    verify.close();
+
+    expect(obs.summary).toContain('CLI work');
+    expect(obs.refresh_count).toBe(1);
+    const sources = JSON.parse(obs.source_chunks);
+    expect(sources).toContain('chk-old');
+    expect(sources).toContain('chk-new1');
+    expect(sources).toContain('chk-new2');
+  });
+
+  it('skips observation refresh when existing_observation_id is not found', async () => {
+    dbPath = tmpDbPath();
+    await setupDb(dbPath, 5);
+
+    vi.stubGlobal(
+      'fetch',
+      mockOllamaFetch(
+        JSON.stringify({
+          observations: [
+            {
+              summary: 'A real observation for marking reflected',
+              domain: 'test',
+              topic: 'test',
+              source_chunk_ids: [],
+              entity_names: [],
+            },
+          ],
+          opinion_updates: [],
+          observation_refreshes: [
+            {
+              existing_observation_id: 'obs-nonexistent',
+              updated_summary: 'This should be skipped',
+              new_source_chunk_ids: ['chk-x'],
+            },
+          ],
+        }),
+      ),
+    );
+
+    const result = await reflect({ dbPath });
+    // The refresh is silently skipped (observation not found), but the new observation counts
+    expect(result.observationsUpdated).toBe(0);
+    expect(result.observationsCreated).toBe(1);
+  });
+
+  it('leaves facts unreflected when LLM returns valid JSON with empty arrays', async () => {
+    dbPath = tmpDbPath();
+    await setupDb(dbPath, 5);
+
+    vi.stubGlobal(
+      'fetch',
+      mockOllamaFetch(
+        JSON.stringify({
+          observations: [],
+          opinion_updates: [],
+          observation_refreshes: [],
+        }),
+      ),
+    );
+
+    const result = await reflect({ dbPath });
+    expect(result.status).toBe('completed');
+    expect(result.factsProcessed).toBe(0);
+
+    // Facts stay unreflected for retry
+    const db = new Database(dbPath);
+    const unreflected = db
+      .prepare(`SELECT COUNT(*) as cnt FROM chunks WHERE reflected_at IS NULL`)
+      .get() as any;
+    db.close();
+    expect(unreflected.cnt).toBe(5);
+  });
+
   it('dampens reinforcement when evidence is agent-generated', async () => {
     dbPath = tmpDbPath();
     await setupDb(dbPath, 5);
