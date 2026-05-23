@@ -380,6 +380,16 @@ interface ExtractedEntity {
   aliases: string[];
 }
 
+// Mirrors the CHECK constraint in schema.sql on entities.entity_type. The LLM
+// is told these values in the extract prompt, but qwen-class models drift and
+// emit e.g. "product" or "category" — that would CHECK-fail the INSERT and
+// abort the whole batch transaction. Coerce unknown types to 'concept' so a
+// drifty entry no-ops the bucket choice instead of poisoning the queue.
+const VALID_ENTITY_TYPES = new Set([
+  'person', 'project', 'organization', 'technology',
+  'location', 'concept', 'event', 'tool',
+]);
+
 interface ExtractedRelation {
   source: string;
   target: string;
@@ -535,11 +545,15 @@ export async function processExtractionQueue(
           const entityId = buildEntityId(ent.canonical_name);
           entityIdMap[ent.canonical_name] = entityId;
 
+          const entityType = VALID_ENTITY_TYPES.has(ent.entity_type)
+            ? ent.entity_type
+            : 'concept';
+
           upsertEntity.run(
             entityId,
             ent.name,
             ent.canonical_name,
-            ent.entity_type,
+            entityType,
             JSON.stringify(ent.aliases || []),
             now,
             now,
