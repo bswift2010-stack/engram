@@ -372,6 +372,7 @@ function beliefSimilarity(a: string, b: string): number {
 }
 
 function resolveEntityIds(db: Database.Database, names: string[]): string[] {
+  if (!Array.isArray(names)) return [];
   const stmt = db.prepare(
     `SELECT id FROM entities WHERE canonical_name = ? AND is_active = TRUE`,
   );
@@ -594,11 +595,11 @@ export async function reflect(config: ReflectConfig): Promise<ReflectResult> {
             `op-${randomUUID().substring(0, 8)}`,
             opUpdate.belief,
             initialConfidence,
-            JSON.stringify(opUpdate.evidence_chunk_ids),
+            JSON.stringify(opUpdate.evidence_chunk_ids ?? []),
             opUpdate.domain,
             JSON.stringify(opEntityIds),
             now,
-            opUpdate.evidence_chunk_ids.length,
+            (opUpdate.evidence_chunk_ids ?? []).length,
           );
           result.opinionsFormed++;
         } else if (opUpdate.direction === 'reinforce') {
@@ -615,7 +616,7 @@ export async function reflect(config: ReflectConfig): Promise<ReflectResult> {
 
             // Dampen self-reinforcement: if >50% of evidence is agent-generated,
             // halve the delta to break opinion feedback loops
-            const evidenceIds = opUpdate.evidence_chunk_ids.filter(
+            const evidenceIds = (opUpdate.evidence_chunk_ids ?? []).filter(
               (id: string) => id,
             );
             if (evidenceIds.length > 0) {
@@ -635,7 +636,7 @@ export async function reflect(config: ReflectConfig): Promise<ReflectResult> {
             const mergedSupporting = [
               ...new Set([
                 ...existing.supporting_chunks,
-                ...opUpdate.evidence_chunk_ids,
+                ...(opUpdate.evidence_chunk_ids ?? []),
               ]),
             ];
             reinforceOpinion.run(
@@ -661,7 +662,7 @@ export async function reflect(config: ReflectConfig): Promise<ReflectResult> {
             const mergedContradicting = [
               ...new Set([
                 ...existing.contradicting_chunks,
-                ...opUpdate.evidence_chunk_ids,
+                ...(opUpdate.evidence_chunk_ids ?? []),
               ]),
             ];
             challengeOpinion.run(
